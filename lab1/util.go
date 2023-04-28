@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/ethereum/go-ethereum/crypto/secp256k1"
 	"math/big"
+
 )
 
 var two = new(big.Int).SetInt64(2)
@@ -65,42 +66,3 @@ func Inv(s *big.Int, N *big.Int) *big.Int {
 	return Pow(s, new(big.Int).Sub(N, two), N)
 }
 
-//func main() {
-//	//n := new(big.Int).SetInt64(19)
-//
-//	//>>> z = 0xbc62d4b80d9e36da29c16c5d4d9f11731f36052c72401a76c23c0fb5a9b74423
-//	//>>> r = 0x37206a0610995c58074999cb9767b87af4c4978db68c06e8e6e81d282047a7c6
-//	//>>> s = 0x8ca63759c1157ebeaec0d03cecca119fc9a75bf8e6d0fa65c841c8e2738cdaec
-//	//>>> px = 0x04519fac3d910ca7e7138f7013706f619fa8f033e6ec6e09370ea38cee6a7574
-//	//>>> py = 0x82b51eab8c27c66e26c858a079bcdf4f1ada34cec420cafc7eac1a42216fb6c4
-//	//>>> point = S256Point(px, py)
-//	//>>> s_inv = pow(s, N-2, N)  ❶
-//	//>>> u = z * s_inv % N  ❷
-//	//>>> v = r * s_inv % N  ❸
-//	//>>> print((u*G + v*point).x.num == r)
-//	z, _ := new(big.Int).SetString("0xbc62d4b80d9e36da29c16c5d4d9f11731f36052c72401a76c23c0fb5a9b74423", 0)
-//	r, _ := new(big.Int).SetString("0x37206a0610995c58074999cb9767b87af4c4978db68c06e8e6e81d282047a7c6", 0)
-//	s, _ := new(big.Int).SetString("0x8ca63759c1157ebeaec0d03cecca119fc9a75bf8e6d0fa65c841c8e2738cdaec", 0)
-//	px, _ := new(big.Int).SetString("0x04519fac3d910ca7e7138f7013706f619fa8f033e6ec6e09370ea38cee6a7574", 0)
-//	py, _ := new(big.Int).SetString("0x82b51eab8c27c66e26c858a079bcdf4f1ada34cec420cafc7eac1a42216fb6c4", 0)
-//
-//	//s, _ := new(big.Int).SetString("0x8ca63759c1157ebeaec0d03cecca119fc9a75bf8e6d0fa65c841c8e2738cdaec", 0)
-//	point := Point{
-//		X: px,
-//		Y: py,
-//	}
-//	sInv := Pow(s, new(big.Int).Sub(N, two), N)
-//	u := new(big.Int).Mul(z, sInv)
-//	u.Mod(u, N)
-//	v := new(big.Int).Mul(r, sInv)
-//	v.Mod(v, N)
-//	gPoint := Point{
-//		X: Gx,
-//		Y: Gy,
-//	}
-//
-//	res := Add(Multi(&gPoint, u), Multi(&point, v))
-//
-//	fmt.Printf(" res %v, expected %v \n", res.X, r)
-//	fmt.Printf(" equal %v \n", r.Cmp(res.X))
-//}

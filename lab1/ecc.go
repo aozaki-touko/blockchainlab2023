@@ -5,6 +5,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/crypto/secp256k1"
 	"math/big"
+
 )
 
 var (
@@ -53,6 +54,7 @@ func GeneratePublicKey(secKey *big.Int) *Point {
 }
 
 func (ecc *MyECC) Sign(msg []byte, secKey *big.Int) (*Signature, error) {
+
 	//calc z
 	msgHash := crypto.Keccak256(msg)
 	var msgVal big.Int
@@ -81,6 +83,7 @@ func (ecc *MyECC) Sign(msg []byte, secKey *big.Int) (*Signature, error) {
 
 	signature := Signature{s, R.X}
 	return &signature, nil
+
 }
 
 // >>> point = S256Point(px, py)
@@ -89,6 +92,7 @@ func (ecc *MyECC) Sign(msg []byte, secKey *big.Int) (*Signature, error) {
 // >>> v = r * s_inv % N  ❸
 // >>> print((u*G + v*point).x.num == r)
 func (ecc *MyECC) VerifySignature(msg []byte, signature *Signature, pubkey *Point) bool {
+
 	//calc z
 	msgHash := crypto.Keccak256(msg)
 	hashInt := new(big.Int)
@@ -115,6 +119,7 @@ func (ecc *MyECC) VerifySignature(msg []byte, signature *Signature, pubkey *Poin
 		return true
 	}
 	return false
+
 }
 
 func main() {
