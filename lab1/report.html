@@ -1,0 +1,259 @@
+<!doctype html>
+<html>
+<head>
+<meta charset='UTF-8'><meta name='viewport' content='width=device-width initial-scale=1'>
+<title>report</title>
+</head>
+<body><h1 id='lab1-报告'>lab1 报告</h1>
+<h2 id='实验目的'>实验目的</h2>
+<ul>
+<li>理解非对称加密算法</li>
+<li>理解椭圆曲线算法ECC</li>
+<li>实现比特币上的椭圆曲线secp256k1算法</li>
+
+</ul>
+<h2 id='实验内容'>实验内容</h2>
+<p>完成签名和验签对应的函数部分</p>
+<h3 id='实现部分'>实现部分：</h3>
+<pre><code class='language-go' lang='go'>type ECC interface {
+    Sign(msg []byte, secKey *big.Int) (*Signature, error)
+    VerifySignature(msg []byte, signature *Signature, pubkey *Point) bool
+}
+</code></pre>
+<h4 id='签名流程'>签名流程</h4>
+<ol start='' >
+<li>我们已知z和满足eG=P的e。</li>
+<li>随机选取k。</li>
+<li>计算R=kG,及其x轴坐标r。</li>
+<li>计算 s=(z+re)/k。</li>
+<li>(r,s) 即为签名结果。</li>
+
+</ol>
+<h4 id='验证流程'>验证流程</h4>
+<ol start='' >
+<li>接收签名者提供的(r,s)作为签名，z是被签名的内容的哈希值。P是签名者的公钥（或者公开的点）。</li>
+<li>计算 u=z/s 和 v=r/s。</li>
+<li>计算 uG + vP = R。</li>
+<li>如果R的x轴坐标等于r，则签名是有效的</li>
+
+</ol>
+<h3 id='个人实现'>个人实现</h3>
+<p>签名部分：</p>
+<ol start='' >
+<li>调用<code>crypto</code>中的<code>crypto.Keccak256</code>函数计算msg的双sha256值，即z，并且将它存到一个int中，调用<code>big.ing.setbyte()</code></li>
+<li>直接用实现好的<code>newRand()</code>取得k，不过看wiki好像说k也不能随便取？</li>
+<li>调用<code>Multi</code>求出R = kG，直接取R.x即为x坐标r</li>
+<li>先求k的逆元，调用Inv函数</li>
+<li>最后利用big.int的api即可计算出s，同时还要注意模k</li>
+
+</ol>
+<p>验证过程：</p>
+<ol start='' >
+<li>同签名部分，调用<code>crypto</code>中的<code>crypto.Keccak256</code>函数计算msg的双sha256值，即z，并且将它存到一个int中，调用<code>big.ing.setbyte()</code></li>
+<li>把签名的s求逆元，得到<mjx-container class="MathJax" jax="SVG" style="position: relative;"><svg xmlns="http://www.w3.org/2000/svg" width="3.324ex" height="2.262ex" role="img" focusable="false" viewBox="0 -750 1469 1000" xmlns:xlink="http://www.w3.org/1999/xlink" aria-hidden="true" style="vertical-align: -0.566ex;"><defs><path id="MJX-1-TEX-N-31" d="M213 578L200 573Q186 568 160 563T102 556H83V602H102Q149 604 189 617T245 641T273 663Q275 666 285 666Q294 666 302 660V361L303 61Q310 54 315 52T339 48T401 46H427V0H416Q395 3 257 3Q121 3 100 0H88V46H114Q136 46 152 46T177 47T193 50T201 52T207 57T213 61V578Z"></path><path id="MJX-1-TEX-N-2F" d="M423 750Q432 750 438 744T444 730Q444 725 271 248T92 -240Q85 -250 75 -250Q68 -250 62 -245T56 -231Q56 -221 230 257T407 740Q411 750 423 750Z"></path><path id="MJX-1-TEX-I-1D460" d="M131 289Q131 321 147 354T203 415T300 442Q362 442 390 415T419 355Q419 323 402 308T364 292Q351 292 340 300T328 326Q328 342 337 354T354 372T367 378Q368 378 368 379Q368 382 361 388T336 399T297 405Q249 405 227 379T204 326Q204 301 223 291T278 274T330 259Q396 230 396 163Q396 135 385 107T352 51T289 7T195 -10Q118 -10 86 19T53 87Q53 126 74 143T118 160Q133 160 146 151T160 120Q160 94 142 76T111 58Q109 57 108 57T107 55Q108 52 115 47T146 34T201 27Q237 27 263 38T301 66T318 97T323 122Q323 150 302 164T254 181T195 196T148 231Q131 256 131 289Z"></path></defs><g stroke="currentColor" fill="currentColor" stroke-width="0" transform="scale(1,-1)"><g data-mml-node="math"><g data-mml-node="mn"><use data-c="31" xlink:href="#MJX-1-TEX-N-31"></use></g><g data-mml-node="TeXAtom" data-mjx-texclass="ORD" transform="translate(500,0)"><g data-mml-node="mo"><use data-c="2F" xlink:href="#MJX-1-TEX-N-2F"></use></g></g><g data-mml-node="mi" transform="translate(1000,0)"><use data-c="1D460" xlink:href="#MJX-1-TEX-I-1D460"></use></g></g></g></svg></mjx-container><script type="math/tex">1/s</script></li>
+<li>用big.int的mul接口，求出u,v</li>
+<li>最后利用提供的ADD和Multi函数，求R</li>
+<li>把R和r比较，一致返回true，否则返回false</li>
+
+</ol>
+<p>签名部分：</p>
+<pre><code class='language-go' lang='go'>	//计算msg的哈希，即z
+	msgHash := crypto.Keccak256(msg)
+	var msgVal big.Int
+	msgVal.SetBytes(msgHash)
+
+	//随机生成一个k
+	randPoint, _ := newRand()
+
+	//计算R值
+	R := Multi(G, randPoint)
+
+	//一步步计算(re+z)/k mod N
+	invK := Inv(randPoint, N)
+	//get r*e
+	re1 := new(big.Int)
+	re1.Mul(R.X, secKey)
+	//calc re+z
+	zpre := new(big.Int)
+	zpre.Add(re1, &amp;msgVal)
+	//calc (re+z)/k
+	s1 := new(big.Int)
+	s1.Mul(zpre, invK)
+	//calc (re+z)/k mod N,which is s
+	s := new(big.Int)
+	s.Mod(s1, N)
+
+	signature := Signature{s, R.X}
+	return &amp;signature, nil
+</code></pre>
+<p>验签部分：</p>
+<pre><code class='language-go' lang='go'>	msgHash := crypto.Keccak256(msg)
+	hashInt := new(big.Int)
+	hashInt.SetBytes(msgHash)
+
+	//calc 1/s
+	inv_s := Inv(signature.s, N)
+
+	//calc u = z/s
+	u1 := new(big.Int)
+	u1.Mul(inv_s, hashInt)
+	u := new(big.Int)
+	u.Mod(u1, N)
+	//calc v =r/s
+	v1 := new(big.Int)
+	v1.Mul(signature.r, inv_s)
+	v := new(big.Int)
+	v.Mod(v1, N)
+
+	//calc R = uG+vP
+	R := Add(Multi(G, u), Multi(pubkey, v))
+	
+	//注意这里一定要用cmp方法，不然比较失败的
+	if R.X.Cmp(signature.r) == 0 {
+		return true
+	}
+	return false
+</code></pre>
+<p>sha256部分：</p>
+<ol start='' >
+<li><p>参考了<a href='https://zh.wikipedia.org/wiki/SHA-2'>SHA-2 </a></p>
+</li>
+<li><p>首先是有8个初始哈希值</p>
+<pre><code class='language-go' lang='go'>h0 := 0x6a09e667
+h1 := 0xbb67ae85
+h2 := 0x3c6ef372
+h3 := 0xa54ff53a
+h4 := 0x510e527f
+h5 := 0x9b05688c
+h6 := 0x1f83d9ab
+h7 := 0x5be0cd19
+</code></pre>
+<p>这是前八个质数的平方的小数部分</p>
+</li>
+<li><p>还有64个初始常数</p>
+<pre><code class='language-fortran' lang='fortran'>k[0..63] :=
+   0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
+   0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
+   0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
+   0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7, 0xc6e00bf3, 0xd5a79147, 0x06ca6351, 0x14292967,
+   0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13, 0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85,
+   0xa2bfe8a1, 0xa81a664b, 0xc24b8b70, 0xc76c51a3, 0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070,
+   0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3,
+   0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2
+</code></pre>
+</li>
+<li><p>首先是对消息进行预处理，把消息先加一个1bit，后面加上若干个0，使得消息位长l满足<mjx-container class="MathJax" jax="SVG" style="position: relative;"><svg xmlns="http://www.w3.org/2000/svg" width="17.771ex" height="1.62ex" role="img" focusable="false" viewBox="0 -694 7854.9 716" xmlns:xlink="http://www.w3.org/1999/xlink" aria-hidden="true" style="vertical-align: -0.05ex;"><defs><path id="MJX-2-TEX-I-1D459" d="M117 59Q117 26 142 26Q179 26 205 131Q211 151 215 152Q217 153 225 153H229Q238 153 241 153T246 151T248 144Q247 138 245 128T234 90T214 43T183 6T137 -11Q101 -11 70 11T38 85Q38 97 39 102L104 360Q167 615 167 623Q167 626 166 628T162 632T157 634T149 635T141 636T132 637T122 637Q112 637 109 637T101 638T95 641T94 647Q94 649 96 661Q101 680 107 682T179 688Q194 689 213 690T243 693T254 694Q266 694 266 686Q266 675 193 386T118 83Q118 81 118 75T117 65V59Z"></path><path id="MJX-2-TEX-N-2261" d="M56 444Q56 457 70 464H707Q722 456 722 444Q722 430 706 424H72Q56 429 56 444ZM56 237T56 250T70 270H707Q722 262 722 250T707 230H70Q56 237 56 250ZM56 56Q56 71 72 76H706Q722 70 722 56Q722 44 707 36H70Q56 43 56 56Z"></path><path id="MJX-2-TEX-N-34" d="M462 0Q444 3 333 3Q217 3 199 0H190V46H221Q241 46 248 46T265 48T279 53T286 61Q287 63 287 115V165H28V211L179 442Q332 674 334 675Q336 677 355 677H373L379 671V211H471V165H379V114Q379 73 379 66T385 54Q393 47 442 46H471V0H462ZM293 211V545L74 212L183 211H293Z"></path><path id="MJX-2-TEX-N-38" d="M70 417T70 494T124 618T248 666Q319 666 374 624T429 515Q429 485 418 459T392 417T361 389T335 371T324 363L338 354Q352 344 366 334T382 323Q457 264 457 174Q457 95 399 37T249 -22Q159 -22 101 29T43 155Q43 263 172 335L154 348Q133 361 127 368Q70 417 70 494ZM286 386L292 390Q298 394 301 396T311 403T323 413T334 425T345 438T355 454T364 471T369 491T371 513Q371 556 342 586T275 624Q268 625 242 625Q201 625 165 599T128 534Q128 511 141 492T167 463T217 431Q224 426 228 424L286 386ZM250 21Q308 21 350 55T392 137Q392 154 387 169T375 194T353 216T330 234T301 253T274 270Q260 279 244 289T218 306L210 311Q204 311 181 294T133 239T107 157Q107 98 150 60T250 21Z"></path><path id="MJX-2-TEX-N-6D" d="M41 46H55Q94 46 102 60V68Q102 77 102 91T102 122T103 161T103 203Q103 234 103 269T102 328V351Q99 370 88 376T43 385H25V408Q25 431 27 431L37 432Q47 433 65 434T102 436Q119 437 138 438T167 441T178 442H181V402Q181 364 182 364T187 369T199 384T218 402T247 421T285 437Q305 442 336 442Q351 442 364 440T387 434T406 426T421 417T432 406T441 395T448 384T452 374T455 366L457 361L460 365Q463 369 466 373T475 384T488 397T503 410T523 422T546 432T572 439T603 442Q729 442 740 329Q741 322 741 190V104Q741 66 743 59T754 49Q775 46 803 46H819V0H811L788 1Q764 2 737 2T699 3Q596 3 587 0H579V46H595Q656 46 656 62Q657 64 657 200Q656 335 655 343Q649 371 635 385T611 402T585 404Q540 404 506 370Q479 343 472 315T464 232V168V108Q464 78 465 68T468 55T477 49Q498 46 526 46H542V0H534L510 1Q487 2 460 2T422 3Q319 3 310 0H302V46H318Q379 46 379 62Q380 64 380 200Q379 335 378 343Q372 371 358 385T334 402T308 404Q263 404 229 370Q202 343 195 315T187 232V168V108Q187 78 188 68T191 55T200 49Q221 46 249 46H265V0H257L234 1Q210 2 183 2T145 3Q42 3 33 0H25V46H41Z"></path><path id="MJX-2-TEX-N-6F" d="M28 214Q28 309 93 378T250 448Q340 448 405 380T471 215Q471 120 407 55T250 -10Q153 -10 91 57T28 214ZM250 30Q372 30 372 193V225V250Q372 272 371 288T364 326T348 362T317 390T268 410Q263 411 252 411Q222 411 195 399Q152 377 139 338T126 246V226Q126 130 145 91Q177 30 250 30Z"></path><path id="MJX-2-TEX-N-64" d="M376 495Q376 511 376 535T377 568Q377 613 367 624T316 637H298V660Q298 683 300 683L310 684Q320 685 339 686T376 688Q393 689 413 690T443 693T454 694H457V390Q457 84 458 81Q461 61 472 55T517 46H535V0Q533 0 459 -5T380 -11H373V44L365 37Q307 -11 235 -11Q158 -11 96 50T34 215Q34 315 97 378T244 442Q319 442 376 393V495ZM373 342Q328 405 260 405Q211 405 173 369Q146 341 139 305T131 211Q131 155 138 120T173 59Q203 26 251 26Q322 26 373 103V342Z"></path><path id="MJX-2-TEX-N-35" d="M164 157Q164 133 148 117T109 101H102Q148 22 224 22Q294 22 326 82Q345 115 345 210Q345 313 318 349Q292 382 260 382H254Q176 382 136 314Q132 307 129 306T114 304Q97 304 95 310Q93 314 93 485V614Q93 664 98 664Q100 666 102 666Q103 666 123 658T178 642T253 634Q324 634 389 662Q397 666 402 666Q410 666 410 648V635Q328 538 205 538Q174 538 149 544L139 546V374Q158 388 169 396T205 412T256 420Q337 420 393 355T449 201Q449 109 385 44T229 -22Q148 -22 99 32T50 154Q50 178 61 192T84 210T107 214Q132 214 148 197T164 157Z"></path><path id="MJX-2-TEX-N-31" d="M213 578L200 573Q186 568 160 563T102 556H83V602H102Q149 604 189 617T245 641T273 663Q275 666 285 666Q294 666 302 660V361L303 61Q310 54 315 52T339 48T401 46H427V0H416Q395 3 257 3Q121 3 100 0H88V46H114Q136 46 152 46T177 47T193 50T201 52T207 57T213 61V578Z"></path><path id="MJX-2-TEX-N-32" d="M109 429Q82 429 66 447T50 491Q50 562 103 614T235 666Q326 666 387 610T449 465Q449 422 429 383T381 315T301 241Q265 210 201 149L142 93L218 92Q375 92 385 97Q392 99 409 186V189H449V186Q448 183 436 95T421 3V0H50V19V31Q50 38 56 46T86 81Q115 113 136 137Q145 147 170 174T204 211T233 244T261 278T284 308T305 340T320 369T333 401T340 431T343 464Q343 527 309 573T212 619Q179 619 154 602T119 569T109 550Q109 549 114 549Q132 549 151 535T170 489Q170 464 154 447T109 429Z"></path></defs><g stroke="currentColor" fill="currentColor" stroke-width="0" transform="scale(1,-1)"><g data-mml-node="math"><g data-mml-node="mi"><use data-c="1D459" xlink:href="#MJX-2-TEX-I-1D459"></use></g><g data-mml-node="mo" transform="translate(575.8,0)"><use data-c="2261" xlink:href="#MJX-2-TEX-N-2261"></use></g><g data-mml-node="mn" transform="translate(1631.6,0)"><use data-c="34" xlink:href="#MJX-2-TEX-N-34"></use><use data-c="34" xlink:href="#MJX-2-TEX-N-34" transform="translate(500,0)"></use><use data-c="38" xlink:href="#MJX-2-TEX-N-38" transform="translate(1000,0)"></use></g><g data-mml-node="mspace" transform="translate(3131.6,0)"></g><g data-mml-node="mi" transform="translate(3965.2,0)"><use data-c="6D" xlink:href="#MJX-2-TEX-N-6D"></use><use data-c="6F" xlink:href="#MJX-2-TEX-N-6F" transform="translate(833,0)"></use><use data-c="64" xlink:href="#MJX-2-TEX-N-64" transform="translate(1333,0)"></use></g><g data-mml-node="mstyle" transform="translate(5854.2,0)"><g data-mml-node="mspace"></g></g><g data-mml-node="mstyle" transform="translate(6021.2,0)"><g data-mml-node="mspace"></g></g><g data-mml-node="mn" transform="translate(6354.9,0)"><use data-c="35" xlink:href="#MJX-2-TEX-N-35"></use><use data-c="31" xlink:href="#MJX-2-TEX-N-31" transform="translate(500,0)"></use><use data-c="32" xlink:href="#MJX-2-TEX-N-32" transform="translate(1000,0)"></use></g></g></g></svg></mjx-container><script type="math/tex">l \equiv 448 \mod{512}</script>，后面补上64位原消息长度。</p>
+<pre><code class='language-go' lang='go'>	//补1
+	padding := append(msg, 0x80)
+	emptyByte := new(byte)
+	if len(padding)%64 &lt; 56 {
+		//mod 512 &lt; 448
+		for len(padding)%64 &lt; 56 {
+			padding = append(padding, *emptyByte)
+		}
+	} else {
+		numOfByteToBeAdd := 64 + 56 - len(padding)
+		for i := 0; i &lt; numOfByteToBeAdd; i++ {
+			padding = append(padding, *emptyByte)
+		}
+	}
+	msgLen := make([]byte, 8)
+	binary.BigEndian.PutUint64(msgLen, uint64(len(msg))*8)
+	padding = append(padding, msgLen...)
+</code></pre>
+</li>
+<li><p>然后把消息进行切分，分割成512bit的块，注意是大端系统</p>
+<pre><code class='language-go' lang='go'>message_blocks := [][]byte{}
+	for i := 0; i &lt; len(padding)/64; i++ {
+		each_block := make([]byte, 64)
+		copy(each_block, padding[i*64:i*64+64])
+		message_blocks = append(message_blocks, each_block)
+	}
+</code></pre>
+</li>
+<li><p>对每一个512位的块，开始计算扩展长，计算过程为</p>
+<pre><code class='language-clike' lang='clike'>for i from 16 to 63
+        s0 := (w[i-15] rightrotate 7) xor (w[i-15] rightrotate 18) xor(w[i-15] rightshift 3)
+        s1 := (w[i-2] rightrotate 17) xor (w[i-2] rightrotate 19) xor(w[i-2] rightshift 10)
+        w[i] := w[i-16] + s0 + w[i-7] + s1
+</code></pre>
+<p>具体实现为，可以用bits的rotateleft实现rotateright</p>
+<pre><code class='language-go' lang='go'>w := [64]uint32{}
+		//分成16 个 32 位整数
+		for i := 0; i &lt; 16; i++ {
+			w[i] = binary.BigEndian.Uint32(block[i*4 : i*4+4])
+		}
+
+		for i := 16; i &lt; 64; i++ {
+			s0 := bits.RotateLeft32(w[i-15], -7) ^ bits.RotateLeft32(w[i-15], -18) ^ (w[i-15] &gt;&gt; 3)
+			s1 := bits.RotateLeft32(w[i-2], -17) ^ bits.RotateLeft32(w[i-2], -19) ^ (w[i-2] &gt;&gt; 10)
+			w[i] = s0 + s1 + w[i-16] + w[i-7]
+		}
+</code></pre>
+</li>
+<li><p>初始化这次循环的哈希值</p>
+<pre><code class='language-go' lang='go'>		a := h0
+		b := h1
+		c := h2
+		d := h3
+		e := h4
+		f := h5
+		g := h6
+		h := h7
+</code></pre>
+</li>
+<li><p>开始进行计算的主循环</p>
+<pre><code class='language-go' lang='go'>for i := 0; i &lt; 64; i++ {
+			s0 := bits.RotateLeft32(a, -2) ^ bits.RotateLeft32(a, -13) ^ bits.RotateLeft32(a, -22)
+			maj := (a &amp; b) ^ (a &amp; c) ^ (b &amp; c)
+			t2 := s0 + maj
+			s1 := bits.RotateLeft32(e, -6) ^ bits.RotateLeft32(e, -11) ^ bits.RotateLeft32(e, -25)
+			ch := (e &amp; f) ^ (^e &amp; g)
+			t1 := h + s1 + ch + k[i] + w[i]
+
+			h = g
+			g = f
+			f = e
+			e = d + t1
+			d = c
+			c = b
+			b = a
+			a = t1 + t2
+		}
+</code></pre>
+</li>
+<li><p>把这段计算的哈希值加到h0-h7</p>
+<pre><code class='language-go' lang='go'>		h0 = h0 + a
+		h1 = h1 + b
+		h2 = h2 + c
+		h3 = h3 + d
+		h4 = h4 + e
+		h5 = h5 + f
+		h6 = h6 + g
+		h7 = h7 + h
+</code></pre>
+</li>
+<li><p>最后按大端系统序存放结果即可</p>
+<pre><code class='language-go' lang='go'>hash := []uint32{h0, h1, h2, h3, h4, h5, h6, h7}
+	result := [32]byte{}
+	for i, u := range hash {
+		binary.BigEndian.PutUint32(result[i*4:i*4+4], u)
+	}
+</code></pre>
+</li>
+
+</ol>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<h3 id='遇到的困难'>遇到的困难</h3>
+<ol start='' >
+<li>第一次用go语言，不太懂怎么用</li>
+<li>实验文档一开始看得不明白，后面才理解是在离散数学中考虑的</li>
+<li>debug起来不知道怎么做，大数计算的验证难以手动验证。</li>
+
+</ol>
+<h3 id='总结'>总结</h3>
+<p>这次实验总的来说难度相对来说比较正常，可以让我们熟悉go语言和区块链中的签名和验签过程。</p>
+</body>
+</html>
