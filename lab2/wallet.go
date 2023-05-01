@@ -8,11 +8,11 @@ import (
 	"crypto/sha256"
 	"encoding/gob"
 	"encoding/hex"
+	"github.com/akamensky/base58"
+	"golang.org/x/crypto/ripemd160"
 	"io/ioutil"
 	"log"
 	"os"
-
-	"golang.org/x/crypto/ripemd160"
 )
 
 const version = byte(0x01)
@@ -55,7 +55,20 @@ func HashPublicKey(pubKey []byte) []byte {
 }
 
 func (w *Wallet) GetAddress() []byte {
-	return nil
+	pubKey := sha256.Sum256(w.PublicKey)
+	//ripemd
+	mdCalc := ripemd160.New()
+	mdCalc.Write(pubKey[:])
+	pubKeyHash := mdCalc.Sum(nil)
+	paddingPubKey := []byte{version}
+	paddingPubKey = append(paddingPubKey, pubKeyHash...)
+	//calc double sha
+	firstSha := sha256.Sum256(paddingPubKey)
+	secondSha := sha256.Sum256(firstSha[:])
+	//
+	paddingChecksumPubKey := append(paddingPubKey, secondSha[:4]...)
+	addr := base58.Encode(paddingChecksumPubKey)
+	return []byte(addr)
 }
 
 // NewWallets creates Wallets and fills it from a file if it exists
