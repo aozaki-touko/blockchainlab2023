@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/gob"
+	"github.com/akamensky/base58"
 	"log"
 )
 
@@ -12,6 +13,8 @@ type TXOutput struct {
 }
 
 func (out *TXOutput) Lock(address []byte) {
+	hashKey, _ := base58.Decode(string(address))
+	out.PubKeyHash = hashKey[1 : len(hashKey)-checkSumlen]
 }
 
 func (out *TXOutput) IsLockedWithKey(pubKeyHash []byte) bool {
