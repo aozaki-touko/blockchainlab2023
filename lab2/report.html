@@ -1,0 +1,202 @@
+<!doctype html>
+<html>
+<head>
+<meta charset='UTF-8'><meta name='viewport' content='width=device-width initial-scale=1'>
+<title>report</title>
+</head>
+<body><h1 id='lab2'>lab2</h1>
+<h2 id='实验目的'>实验目的</h2>
+<ul>
+<li>了解区块链上的简单数据结构</li>
+<li>实现Merkle树的构建</li>
+<li>初步理解UTXO的使用和验证</li>
+<li>理解比特币上的交易创建</li>
+
+</ul>
+<h2 id='实验内容'>实验内容</h2>
+<h3 id='merkle树部分'>Merkle树部分</h3>
+<pre><code>func NewMerkleTree(data [][]byte) *MerkleTree //生成Merkle树
+func NewMerkleNode(left, right *MerkleNode, data []byte) *MerkleNode // 生成Merkle树节点
+func (t *MerkleTree) SPVproof(index int) ([][]byte, error) //提供SPV path
+func (t *MerkleTree) VerifyProof(index int, path [][]byte) (bool, error) //验证SPV路径
+</code></pre>
+<h3 id='transaction部分'>Transaction部分</h3>
+<pre><code>func (t *Transaction) IsCoinBase() bool //coinbase交易判断
+</code></pre>
+<h3 id='wallet部分'>Wallet部分</h3>
+<pre><code>func (w *Wallet) GetAddress() []byte //获取公钥对应的地址
+</code></pre>
+<h3 id='txoutput部分'>TXOutput部分</h3>
+<pre><code>func (out *TXOutput) Lock(address []byte)   //设置锁定脚本PubkeyHash部分
+</code></pre>
+<h2 id='实验步骤'>实验步骤</h2>
+<ol>
+<li><p>Merkle树部分</p>
+<ol>
+<li><p>构建结点：</p>
+<p>需要分两种情况，第一种是左右节点都是空，这类就是最底层的对<code>transcation</code>进行hash操作，作为最底层的结点存在。第二种是左右都有子结点，这种就是更高层的结点，需要把左右hash合并，并且再hash一次。</p>
+<pre><code class='language-go' lang='go'>ret := new(MerkleNode)
+	if left == nil &amp;&amp; right == nil {
+		shaVal := sha256.Sum256(data)
+		ret.Data = shaVal[:]
+		return ret
+	} else {
+		ret.Left = left
+		ret.Right = right
+		shaVal := sha256.Sum256(append(left.Data, right.Data...))
+		ret.Data = shaVal[:]
+		return ret
+	}
+</code></pre>
+</li>
+<li><p>建树</p>
+<p>需要对结点数为0和1做特判。</p>
+<p>为0则返回<code>nil</code></p>
+<p>为1则返回一个node，但是要封装在root中</p>
+<p>其他则正常处理，在奇数个结点则复制一份，偶数个则直接聚合</p>
+<pre><code class='language-go' lang='go'>if len(data) == 0 {
+		return nil
+	}
+	if len(data) == 1 {
+		sigNode := NewMerkleNode(nil, nil, data[0])
+		ret := new(MerkleTree)
+		ret.Leaf = data
+		ret.RootNode = sigNode
+		return ret
+	} else {
+		var nodes []*MerkleNode
+		for _, eachTrade := range data {
+			//eachHash := sha256.Sum256(eachTrade)
+			nodes = append(nodes, NewMerkleNode(nil, nil, eachTrade))
+		}
+		for len(nodes) &gt; 1 {
+			if len(nodes)%2 != 0 {
+				nodes = append(nodes, nodes[len(nodes)-1])
+			}
+			var level []*MerkleNode
+			for i := 0; i &lt; len(nodes); i += 2 {
+				level = append(level, NewMerkleNode(nodes[i], nodes[i+1], nil))
+			}
+			nodes = level
+		}
+		ret := new(MerkleTree)
+		ret.RootNode = nodes[0]
+		ret.Leaf = data
+		return ret
+	}
+
+</code></pre>
+</li>
+<li><p>生成spv验证路径</p>
+<p>相当于重新构建一棵树，而且要自底向上把一个结点相对的结点存入到路径</p>
+<pre><code class='language-go' lang='go'>if index &gt; len(t.Leaf) {
+		return nil, errors.ErrKeyIncorrect
+	}
+	var proofPath [][]byte
+	var hashes [][]byte
+	for _, leaf := range t.Leaf {
+		hashVal := sha256.Sum256(leaf)
+		hashes = append(hashes, hashVal[:])
+	}
+	for len(hashes) &gt; 1 {
+		if len(hashes)%2 != 0 {
+			hashes = append(hashes, hashes[len(hashes)-1])
+		}
+
+		if index%2 != 0 {
+			proofPath = append(proofPath, hashes[index-1])
+		} else {
+			proofPath = append(proofPath, hashes[index+1])
+		}
+		index = index / 2
+		var level [][]byte
+		for i := 0; i &lt; len(hashes); i += 2 {
+			hashVal := sha256.Sum256(bytes.Join([][]byte{hashes[i], hashes[i+1]}, []byte{}))
+			level = append(level, hashVal[:])
+		}
+		hashes = level
+
+	}
+	return proofPath, nil
+</code></pre>
+</li>
+<li><p>验证</p>
+<p>把某片要验证的叶子做hash，之后根据index选择放在左边还是右边，<strong>index为偶数放在左边，index为奇数放在右边</strong></p>
+<p>最后和root的hash比较</p>
+<pre><code class='language-go' lang='go'>Leaf := sha256.Sum256(t.Leaf[index])
+	hashLeaf := Leaf[:]
+	for _, eachHash := range path {
+		if index%2 == 0 {
+			hashVal := sha256.Sum256(bytes.Join([][]byte{hashLeaf, eachHash}, []byte{}))
+			hashLeaf = hashVal[:]
+		} else {
+			hashVal := sha256.Sum256(bytes.Join([][]byte{eachHash, hashLeaf}, []byte{}))
+			hashLeaf = hashVal[:]
+		}
+		index = index / 2
+	}
+	for i := 0; i &lt; 32; i++ {
+		if t.RootNode.Data[i] != hashLeaf[i] {
+			return false, nil
+		}
+	}
+	return true, nil
+</code></pre>
+</li>
+
+</ol>
+</li>
+<li><p>transaction部分</p>
+<p>如文档所提及的</p>
+<p><code>在我们的设计中，coinbase交易中对应的输入中Txid 为空，Vout对应为-1，并且是一个区块的第一笔交易。</code></p>
+<p>因此只要判断Vin的Txid是否为空，且Vout是否为-1即可。(第一笔交易貌似没有办法判断)</p>
+<pre><code class='language-go' lang='go'>if len(t.Vin) == 1 {
+		if t.Vin[0].Vout == -1 &amp;&amp; len(t.Vin[0].Txid) == 0 {
+			return true
+		}
+	}
+	return false
+</code></pre>
+</li>
+<li><p>Txoutput部分</p>
+<p><img src="./fig/address.png" referrerpolicy="no-referrer" alt="image-20230425173638277"></p>
+<p>需要把交易的公钥hash进行设定，已经给定了address的话，只需要解码以后去掉version和checksum即可</p>
+<pre><code class='language-go' lang='go'>func (out *TXOutput) Lock(address []byte) {
+	hashKey, _ := base58.Decode(string(address))
+	out.PubKeyHash = hashKey[1 : len(hashKey)-checkSumlen]
+}
+</code></pre>
+</li>
+<li><p>wallet部分</p>
+<p>如上图有四个部分</p>
+<ol>
+<li>计算公钥的哈希值（<code>RIPEMD16(SHA256(PubKey))</code>）</li>
+<li>地址计算前加入版本号</li>
+<li>把步骤2的内容通过计算公钥哈希的双重SHA256哈希加密，取<strong>前4个字节</strong>作为校验和</li>
+<li><code>版本号，公钥哈希，校验和</code>的组合通过Base58加密生成比特币的地址</li>
+
+</ol>
+<pre><code class='language-go' lang='go'>pubKey := sha256.Sum256(w.PublicKey)
+	//ripemd
+	mdCalc := ripemd160.New()
+	mdCalc.Write(pubKey[:])
+	pubKeyHash := mdCalc.Sum(nil)
+	paddingPubKey := []byte{version}
+	paddingPubKey = append(paddingPubKey, pubKeyHash...)
+	//calc double sha
+	firstSha := sha256.Sum256(paddingPubKey)
+	secondSha := sha256.Sum256(firstSha[:])
+	//
+	paddingChecksumPubKey := append(paddingPubKey, secondSha[:4]...)
+	addr := base58.Encode(paddingChecksumPubKey)
+	return []byte(addr)
+</code></pre>
+<p>此处调用了一个包<a href='github.com/akamensky/base58'>base58</a></p>
+</li>
+
+</ol>
+<p>&nbsp;</p>
+<h2 id='实验总结'>实验总结</h2>
+<p>	这次实验总的来说难度适中，让我了解了区块链上的一些结构，对课程的体会更深了。而且有很多测试，可以很快的发现自己的问题。</p>
+</body>
+</html>
