@@ -120,11 +120,12 @@ type TXOutput struct {
 
 比特币上的地址是通过公钥生成的一个数据，是通过`RIPEMD16`和`sha256`加密，`Base58`编码生成，对应生成比特币上的方法如下：
 
-![image-20230425173638277](./fig/address.png)
+![image-20230425173638277](./fig/payload.jpg)
 
 1. 计算公钥的哈希值（`RIPEMD16(SHA256(PubKey))`）
-2. 计算公钥哈希的双重哈希加密，取**前4个字节**作为校验和
-3. `版本号，公钥哈希，校验和`的组合通过Base58加密生成比特币的地址
+2.  地址计算前加入版本号
+3. 把步骤2的内容通过计算公钥哈希的双重SHA256哈希加密，取**前4个字节**作为校验和
+4. `版本号，公钥哈希，校验和`的组合通过Base58加密生成比特币的地址
 
 ### P2PKH
 
@@ -138,7 +139,7 @@ P2PKH对应的计算脚本如下：
 
 在这个验证方式中，通过`OP_EQUALVERIFY`验证了公钥哈希是否和公钥一致，签名是否是和数据一致。
 
-在这个试验中，我们先实现对于公钥验证的部分
+在这个试验中，我们先实现对于公钥验证的部分，func (out *TXOutput) Lock(address []byte)在中设置的锁定脚本需要和publickeyhash对应相同。
 ## 实验内容
 
 ### 目录结构
@@ -198,3 +199,6 @@ func (out *TXOutput) Lock(address []byte)   //设置锁定脚本PubkeyHash部分
 [Merkle Tree](https://en.bitcoin.it/wiki/Protocol_documentation#Merkle_Trees)
 
 [区块链哈希算法](https://en.bitcoin.it/wiki/Block_hashing_algorithm)
+
+
+
