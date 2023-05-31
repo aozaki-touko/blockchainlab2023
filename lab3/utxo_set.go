@@ -16,6 +16,7 @@ type UTXOSet struct {
 
 // FindSpendableOutputs finds and returns unspent outputs to reference in inputs
 func (u UTXOSet) FindUnspentOutputs(pubkeyHash []byte, amount int) (int, map[string][]int) {
+
 	return 0, nil
 }
 

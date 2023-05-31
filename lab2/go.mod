@@ -3,8 +3,8 @@ module lab2
 go 1.19
 
 require (
+	github.com/akamensky/base58 v0.0.0-20210829145138-ce8bf8802e8f
 	github.com/boltdb/bolt v1.3.1
-	github.com/btcsuite/btcutil v1.0.2
 	github.com/stretchr/testify v1.8.2
 	golang.org/x/crypto v0.8.0
 )

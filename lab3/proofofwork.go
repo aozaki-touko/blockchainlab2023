@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/sha256"
 	"math"
 	"math/big"
 )
@@ -38,5 +39,12 @@ func (pow *ProofOfWork) Run() (int64, []byte) {
 // Validate validates block's PoW
 // implement
 func (pow *ProofOfWork) Validate() bool {
-	return true
+	ser := pow.block.Serialize()
+	//targetVal := new(big.Int).Exp(big.NewInt(int64(2)), big.NewInt(int64(256)-pow.target.Int64()), nil)
+	hashedSer := sha256.Sum256(ser)
+	hashedVal := new(big.Int).SetBytes(hashedSer[:])
+	if pow.target.Cmp(hashedVal) == 1 {
+		return true
+	}
+	return false
 }
