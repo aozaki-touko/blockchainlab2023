@@ -67,9 +67,7 @@ func (pow *ProofOfWork) Run() (int64, []byte) {
 // Validate validates block's PoW
 // implement
 func (pow *ProofOfWork) Validate() bool {
-	prevHash := pow.block.GetPrevhash()
-	mkHash := pow.block.Header.MerkleRoot
-	temp := bytes.Join([][]byte{IntToHex(pow.block.Header.Version), prevHash[:], mkHash[:], IntToHex(pow.block.Header.Timestamp), IntToHex(pow.block.Header.Bits), IntToHex(pow.block.Header.Nonce)}, []byte{})
+	temp := pow.makeHeader(pow.block.Header.Nonce)
 
 	//prevHash := pow.block.GetPrevhash()
 	//res = append(res, prevHash[:]...)
