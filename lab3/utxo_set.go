@@ -16,8 +16,30 @@ type UTXOSet struct {
 
 // FindSpendableOutputs finds and returns unspent outputs to reference in inputs
 func (u UTXOSet) FindUnspentOutputs(pubkeyHash []byte, amount int) (int, map[string][]int) {
+	unspentOutputs := make(map[string][]int)
+	accumulated := 0
 
-	return 0, nil
+	err := u.Blockchain.db.View(func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte(utxoBucket))
+		c := b.Cursor()
+
+		for k, v := c.First(); k != nil; k, v = c.Next() {
+			txid := hex.EncodeToString(k)
+			outs := DeserializeOutputs(v)
+			for outIdx, out := range outs.Outputs {
+				if out.IsLockedWithKey(pubkeyHash) && accumulated < amount {
+					unspentOutputs[txid] = append(unspentOutputs[txid], outIdx)
+					accumulated += out.Value
+				}
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		log.Panic(err)
+	}
+
+	return accumulated, unspentOutputs
 }
 
 // FindUTXO finds UTXO for a public key hash

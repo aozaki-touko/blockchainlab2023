@@ -86,8 +86,45 @@ func (bc *Blockchain) VerifyTransaction(tx *Transaction) bool {
 // implement
 // MineBlock mines a new block with the provided transactions
 func (bc *Blockchain) MineBlock(transactions []*Transaction) *Block {
+	var prevHash []byte
+	for _, transaction := range transactions {
+		if bc.VerifyTransaction(transaction) != true {
+			log.Panic("error transaction")
+		}
+	}
+	//now get prev hash
+	db := bc.db
+	err := db.View(func(tx *bolt.Tx) error {
+		bk := tx.Bucket([]byte(blocksBucket))
+		prevHash = bk.Get([]byte("l"))
+		return nil
+	})
+	if err != nil {
+		log.Panic(err)
+	}
+	//now start mine
+	var hashVal [32]byte
+	copy(hashVal[:], prevHash)
+	blk := NewBlock(transactions, hashVal)
 
-	return nil
+	//now write back to db
+	err = db.Update(func(tx *bolt.Tx) error {
+		bk := tx.Bucket([]byte(blocksBucket))
+		err := bk.Put(blk.CalCulHash(), blk.Serialize())
+		if err != nil {
+			log.Panic(err)
+		}
+		err = bk.Put([]byte("l"), blk.CalCulHash())
+		if err != nil {
+			log.Panic(err)
+		}
+		bc.tip = blk.CalCulHash()
+		return nil
+	})
+	if err != nil {
+		log.Panic(err)
+	}
+	return blk
 }
 
 // Iterator ...
@@ -203,8 +240,43 @@ func NewBlockchain() *Blockchain {
 }
 
 func (bc *Blockchain) FindUTXO() map[string]TXOutputs {
+	utxos := make(map[string]TXOutputs)
+	spentUTXO := make(map[string][]int)
+	iter := bc.Iterator()
+	for {
+		block := iter.Next()
+		for _, transaction := range block.GetTransactions() {
+			txid := hex.EncodeToString(transaction.ID)
+			//coinbase 没有vin
+			if transaction.Vin != nil {
+				for _, input := range transaction.Vin {
+					inId := hex.EncodeToString(input.Txid)
+					spentUTXO[inId] = append(spentUTXO[inId], input.Vout)
+				}
+			}
+			for idx, out := range transaction.Vout {
+				found := false
+				if spentUTXO[txid] != nil {
+					for _, spentOut := range spentUTXO[txid] {
+						if spentOut == idx {
+							found = true
+							break
+						}
+					}
+				}
+				if !found {
+					outs := utxos[txid]
+					outs.Outputs = append(outs.Outputs, out)
+					utxos[txid] = outs
+				}
+			}
 
-	return nil
+		}
+		if block.GetPrevhash() == [32]byte{} {
+			break
+		}
+	}
+	return utxos
 }
 
 func (bc *Blockchain) Close() error {
