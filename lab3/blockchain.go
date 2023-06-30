@@ -248,7 +248,7 @@ func (bc *Blockchain) FindUTXO() map[string]TXOutputs {
 		for _, transaction := range block.GetTransactions() {
 			txid := hex.EncodeToString(transaction.ID)
 			//coinbase 没有vin
-			if transaction.Vin != nil {
+			if !transaction.IsCoinBase() {
 				for _, input := range transaction.Vin {
 					inId := hex.EncodeToString(input.Txid)
 					spentUTXO[inId] = append(spentUTXO[inId], input.Vout)
